@@ -62,10 +62,8 @@ vectorizer = TfidfVectorizer(vocabulary=selected_features)
 vectorizer.fit(corpus)
 X_train = vectorizer.transform(corpus)
 
-model_name = "gradient_boosting"
-classifier = GradientBoostingClassifier(
-    n_estimators=100, learning_rate=0.1, max_depth=1, random_state=0
-)
+model_name = "native_bayes"
+classifier = MultinomialNB()
 
 ## train classifier
 model = Pipeline([("vectorizer", vectorizer),
@@ -73,8 +71,8 @@ model = Pipeline([("vectorizer", vectorizer),
 
 model["classifier"].fit(X_train, y_train)
 ## test
-X_test = valid["cleanText"].values
-y_test = label_encoder.transform(valid["Sentiment"])
+X_test = test["cleanText"].values
+y_test = label_encoder.transform(test["Sentiment"])
 predicted = model.predict(X_test)
 acc = accuracy_score(y_test, predicted)
 clf_report = classification_report(y_test, predicted)
