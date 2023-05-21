@@ -1,6 +1,7 @@
 import os
 import pickle
 
+import pandas as pd
 import tensorflow as tf
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -14,13 +15,12 @@ data_file = os.path.join(PathSettings.DATA_FOLDER, "bag_data.pkl")
 label_encoder = LabelEncoder()
 model_name = "tf_lstm"
 
-with open(data_file, "rb") as f:
-    data = pickle.load(f)
-    train = data["train"]
-    valid = data["valid"]
-    test = data["test"]
+train = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "train_dp.csv"))
+valid = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "val_dp.csv"))
+test = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "test_dp.csv"))
 
-text_ds = tf.data.Dataset.from_tensor_slices(train["cleanText"].tolist()).batch(128)
+
+text_ds = tf.data.Dataset.from_tensor_slices(train["cus_comment"].tolist()).batch(128)
 vectorizer.adapt(text_ds)
 print(vectorizer.get_vocabulary()[:5])
 
@@ -35,13 +35,13 @@ embedding_layer = tf.keras.layers.Embedding(
 )
 
 model_save_path = os.path.join(PathSettings.MODEL_FOLDER, f"{model_name}.h5")
-label_encoder.fit(train["Sentiment"])
+label_encoder.fit(train["label"])
 
 if not os.path.exists(model_save_path):
     int_sequences_input = tf.keras.Input(shape=(None,), dtype="int64")
     embedded_sequences = embedding_layer(int_sequences_input)
-    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True))(embedded_sequences)
-    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64))(x)
+    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32, return_sequences=True))(embedded_sequences)
+    x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32))(x)
     preds = tf.keras.layers.Dense(3, activation="softmax")(x)
     model = tf.keras.Model(int_sequences_input, preds)
     print(model.summary())
@@ -50,11 +50,11 @@ if not os.path.exists(model_save_path):
         loss="categorical_crossentropy", optimizer="adam", metrics=["acc"]
     )
 
-    x_train = vectorizer(np.array([[s] for s in train["cleanText"].tolist()])).numpy()
-    x_val = vectorizer(np.array([[s] for s in valid["cleanText"].tolist()])).numpy()
+    x_train = vectorizer(np.array([[s] for s in train["cus_comment"].tolist()])).numpy()
+    x_val = vectorizer(np.array([[s] for s in valid["cus_comment"].tolist()])).numpy()
 
-    y_train = tf.keras.utils.to_categorical(label_encoder.fit_transform(train["Sentiment"]))
-    y_val = tf.keras.utils.to_categorical(label_encoder.transform(valid["Sentiment"]))
+    y_train = tf.keras.utils.to_categorical(label_encoder.fit_transform(train["label"]))
+    y_val = tf.keras.utils.to_categorical(label_encoder.transform(valid["label"]))
 
     my_callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=3),
@@ -64,8 +64,8 @@ if not os.path.exists(model_save_path):
 else:
     model = tf.keras.models.load_model(model_save_path)
 
-x_test = vectorizer(np.array([[s] for s in test["cleanText"].tolist()])).numpy()
-y_test = tf.keras.utils.to_categorical(label_encoder.transform(test["Sentiment"]))
+x_test = vectorizer(np.array([[s] for s in test["cus_comment"].tolist()])).numpy()
+y_test = tf.keras.utils.to_categorical(label_encoder.transform(test["label"]))
 int_sequences_input = tf.keras.Input(shape=(None,), dtype="int64")
 predicted = model(x_test).numpy()
 predicted = np.argmax(predicted, axis=1)

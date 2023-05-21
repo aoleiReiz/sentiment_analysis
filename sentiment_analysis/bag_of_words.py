@@ -13,41 +13,15 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 
 from settings import PathSettings
-import utils
 
-nlp = spacy.load("zh_core_web_sm")
-
-data_file = os.path.join(PathSettings.DATA_FOLDER, "bag_data.pkl")
-if not os.path.exists(data_file):
-    train = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "train_split.csv"))
-    valid = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "valid_split.csv"))
-    test = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "test_split.csv"))
-
-    train = train[['Utterance', 'Sentiment']]
-    valid = valid[['Utterance', 'Sentiment']]
-    test = test[['Utterance', 'Sentiment']]
-
-    train["cleanText"] = train["Utterance"].apply(lambda x: utils.utils_preprocess_text(x))
-    valid["cleanText"] = valid["Utterance"].apply(lambda x: utils.utils_preprocess_text(x))
-    test["cleanText"] = test["Utterance"].apply(lambda x: utils.utils_preprocess_text(x))
-
-    with open(os.path.join(PathSettings.DATA_FOLDER, "bag_data.pkl"), "wb") as w:
-        pickle.dump({
-            "train": train,
-            "valid": valid,
-            "test": test
-        }, w)
-else:
-    with open(data_file, "rb") as f:
-        data = pickle.load(f)
-        train = data["train"]
-        valid = data["valid"]
-        test = data["test"]
+train = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "train_dp.csv"))
+valid = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "val_dp.csv"))
+test = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "test_dp.csv"))
 
 label_encoder = LabelEncoder()
-y_train = label_encoder.fit_transform(train["Sentiment"])
+y_train = label_encoder.fit_transform(train["label"])
 vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 2))
-corpus = train["cleanText"].tolist()
+corpus = train["cus_comment"].tolist()
 vectorizer.fit(corpus)
 X_train = vectorizer.transform(corpus)
 chi2, p = chi2(X_train, y_train)
@@ -71,8 +45,8 @@ model = Pipeline([("vectorizer", vectorizer),
 
 model["classifier"].fit(X_train, y_train)
 ## test
-X_test = test["cleanText"].values
-y_test = label_encoder.transform(test["Sentiment"])
+X_test = test["cus_comment"].values
+y_test = label_encoder.transform(test["label"])
 predicted = model.predict(X_test)
 acc = accuracy_score(y_test, predicted)
 clf_report = classification_report(y_test, predicted)

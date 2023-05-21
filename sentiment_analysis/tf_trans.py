@@ -51,6 +51,7 @@ maxlen = 200  # Only consider the first 200 words of each movie review
 import os
 import pickle
 
+import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report
@@ -59,32 +60,30 @@ data_file = os.path.join(PathSettings.DATA_FOLDER, "bag_data.pkl")
 label_encoder = LabelEncoder()
 model_name = "tf_transformer"
 
-with open(data_file, "rb") as f:
-    data = pickle.load(f)
-    train = data["train"]
-    valid = data["valid"]
-    test = data["test"]
+train = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "train_dp.csv"))
+valid = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "val_dp.csv"))
+test = pd.read_csv(os.path.join(PathSettings.DATA_FOLDER, "test_dp.csv"))
 
 vectorizer = tf.keras.layers.TextVectorization(max_tokens=20000, output_sequence_length=200)
 
-text_ds = tf.data.Dataset.from_tensor_slices(train["cleanText"].tolist()).batch(128)
+text_ds = tf.data.Dataset.from_tensor_slices(train["cus_comment"].tolist()).batch(128)
 vectorizer.adapt(text_ds)
 
-label_encoder.fit(train["Sentiment"])
+label_encoder.fit(train["label"])
 
 model_save_path = os.path.join(PathSettings.MODEL_FOLDER, f"{model_name}.h5")
-label_encoder.fit(train["Sentiment"])
+label_encoder.fit(train["label"])
 
 
-x_train = vectorizer(np.array([[s] for s in train["cleanText"].tolist()])).numpy()
-x_val = vectorizer(np.array([[s] for s in valid["cleanText"].tolist()])).numpy()
+x_train = vectorizer(np.array([[s] for s in train["cus_comment"].tolist()])).numpy()
+x_val = vectorizer(np.array([[s] for s in valid["cus_comment"].tolist()])).numpy()
 
-y_train = tf.keras.utils.to_categorical(label_encoder.transform(train["Sentiment"]))
-y_val = tf.keras.utils.to_categorical(label_encoder.transform(valid["Sentiment"]))
+y_train = tf.keras.utils.to_categorical(label_encoder.transform(train["label"]))
+y_val = tf.keras.utils.to_categorical(label_encoder.transform(valid["label"]))
 
-x_test = vectorizer(np.array([[s] for s in test["cleanText"].tolist()])).numpy()
+x_test = vectorizer(np.array([[s] for s in test["cus_comment"].tolist()])).numpy()
 
-y_test = tf.keras.utils.to_categorical(label_encoder.transform(test["Sentiment"]))
+y_test = tf.keras.utils.to_categorical(label_encoder.transform(test["label"]))
 
 voc = vectorizer.get_vocabulary()
 word_index = dict(zip(voc, range(len(voc))))
@@ -122,7 +121,7 @@ if not os.path.exists(model_save_path):
     history = model.fit(
         x_train, y_train, batch_size=32, epochs=20, validation_data=(x_val, y_val), callbacks=my_callbacks
     )
-    model.save("tf_transformer.h5")
+    # model.save("tf_transformer.h5")
 else:
     model = tf.keras.models.load_model(model_save_path, custom_objects={'CustomLayer': TokenAndPositionEmbedding})
 
